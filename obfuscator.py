@@ -135,11 +135,8 @@ class Obfuscator(ast.NodeTransformer):
 		self._level -= 1;
 		return node;
 
-	def visit_For(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
-		return node;
+	visit_For = visit_While = visit_ExceptHandler = \
+	visit_With = visit_TryExcept = visit_TryFinally = visit_If;
 
 	def visit_Str(self, node):
 		sType = type(node.s);
@@ -151,21 +148,9 @@ class Obfuscator(ast.NodeTransformer):
 			return node;
 
 	def visit_Name(self, node):
-		if not node.id.startswith('__'):
+		if not node.id.endswith('__') or not node.id.startswith('__'):
 			if node.id not in __builtins__.__dict__:
 				node.id = self._rename(node.id);
-		return node;
-
-	def visit_With(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
-		return node;
-
-	def visit_While(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
 		return node;
 
 	def visit_Global(self, node):
@@ -216,14 +201,17 @@ class Obfuscator(ast.NodeTransformer):
 		self.generic_visit(node);
 		self._level -= 1;
 		for name, alias in self._methods:
-			node.body.append(ast.Assign(targets = [ast.Name(id = name, ctx = ast.Store())], value = ast.Name(id = alias, ctx = ast.Store())));
+			node.body.append(ast.Assign(
+				value = ast.Name(
+					id = alias,
+					ctx = ast.Store())
+				),
+				targets = [ast.Name(
+					id = name,
+					ctx = ast.Store()
+				)]
+			);
 		self._restoreState();
-		return node;
-
-	def visit_TryExcept(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
 		return node;
 
 	def visit_Attribute(self, node):
@@ -236,12 +224,6 @@ class Obfuscator(ast.NodeTransformer):
 		self.generic_visit(node);
 		return node;
 
-	def visit_TryFinally(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
-		return node;
-
 	def visit_ImportFrom(self, node):
 		for name in node.names:
 			name.asname = self._rename(name.name);
@@ -249,7 +231,7 @@ class Obfuscator(ast.NodeTransformer):
 		return node;
 
 	def visit_FunctionDef(self, node):
-		if not node.name.startswith('__'):
+		if not node.name.endswith('__') or not node.name.startswith('__'):
 			self._attrs.append(node.name);
 			newName = self._rename(node.name);
 			if not node.name.startswith('_'):
@@ -264,16 +246,19 @@ class Obfuscator(ast.NodeTransformer):
 		self._level -= 1;
 		return node;
 
-	def visit_ExceptHandler(self, node):
-		self._level += 1;
-		self.generic_visit(node);
-		self._level -= 1;
-		return node;
-
 	def obfuscate(self, fp):
 		node = self.visit(ast.parse(fp.read()));
 		for name, alias in (self._constants + self._classes + self._methods):
-			node.body.append(ast.Assign(targets = [ast.Name(id = name, ctx = ast.Store())], value = ast.Name(id = alias, ctx = ast.Store())));
+			node.body.append(ast.Assign(
+				value = ast.Name(
+					id = alias,
+					ctx = ast.Store())
+				),
+				targets = [ast.Name(
+					id = name,
+					ctx = ast.Store()
+				)]
+			);
 		return node;
 
 def usage():
